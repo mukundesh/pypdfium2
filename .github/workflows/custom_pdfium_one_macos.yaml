@@ -1,0 +1,91 @@
+# SPDX-FileCopyrightText: 2026 geisserml <geisserml@gmail.com>
+# SPDX-License-Identifier: Apache-2.0 OR BSD-3-Clause
+
+name: Custom PDFium One macOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      pdfium_repo:
+        description: Owner/repo for the custom PDFium build
+        type: string
+        required: true
+        default: mukundesh/pdfium
+      pdfium_artifact:
+        description: Artifact name produced by the PDFium workflow
+        type: string
+        required: true
+        default: pdfium-macos-arm64
+      py_ver:
+        description: Python version
+        type: string
+        required: true
+        default: "3.12"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.py_ver }}
+
+      - name: Check out pypdfium2 repository
+        uses: actions/checkout@v4
+
+      - name: Install Python build dependencies
+        run: |
+          python3 -m pip install -U pip
+          python3 -m pip install -U -r req/setup.txt -r req/test.txt build
+
+      - name: Download custom PDFium artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          repo: ${{ inputs.pdfium_repo }}
+          workflow: build-pdfium.yml
+          workflow_conclusion: success
+          name: ${{ inputs.pdfium_artifact }}
+          path: custom_pdfium_artifact
+
+      - name: Inspect custom PDFium artifact
+        run: |
+          find custom_pdfium_artifact -maxdepth 3 -type f | sort
+
+      - name: Resolve PDFium paths
+        run: |
+          PDFIUM_LIB="$(find custom_pdfium_artifact/lib -maxdepth 1 -type f \\( -name 'libpdfium*.dylib' -o -name 'libpdfium*.so' -o -name 'libpdfium*.dll' \\) | head -n 1)"
+          test -n "$PDFIUM_LIB"
+          test -d custom_pdfium_artifact/include/public
+          echo "PDFIUM_BINARY=$PDFIUM_LIB" >> "$GITHUB_ENV"
+          echo "PDFIUM_HEADERS=$PWD/custom_pdfium_artifact/include/public" >> "$GITHUB_ENV"
+
+      - name: Build wheel against custom PDFium
+        run: |
+          python3 -m build -wxn
+        env:
+          PDFIUM_PLATFORM: system-search
+          PDFIUM_BINARY: ${{ env.PDFIUM_BINARY }}
+          PDFIUM_HEADERS: ${{ env.PDFIUM_HEADERS }}
+
+      - name: Upload wheel as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          path: ./dist/*.whl
+          name: custom-pypdfium2-macos-arm64
+          if-no-files-found: error
+
+      - name: Install and smoke test wheel
+        run: |
+          python3 -m pip install ./dist/*.whl
+          python3 - <<'PY'
+          import pypdfium2 as pdfium
+          print(pdfium.PDFIUM_INFO)
+          print(hasattr(pdfium, "PdfDocument"))
+          PY
