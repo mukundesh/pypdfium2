@@ -65,13 +65,35 @@ jobs:
           echo "PDFIUM_BINARY=$PDFIUM_LIB" >> "$GITHUB_ENV"
           echo "PDFIUM_HEADERS=$PWD/custom_pdfium_artifact/include/public" >> "$GITHUB_ENV"
 
+      - name: Stage custom PDFium as sourcebuild
+        run: |
+          python3 - <<'PY'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path("setupsrc").resolve()))
+          from _build_helpers import pack_sourcebuild
+          from base import PdfiumVerUnknown
+
+          pdfium_dir = Path("custom_pdfium_artifact/include").resolve()
+          build_dir = Path("custom_pdfium_artifact/lib").resolve()
+          pack_sourcebuild(
+              pdfium_dir=pdfium_dir,
+              build_dir=build_dir,
+              sub_target="custom",
+              full_ver=PdfiumVerUnknown,
+              build_ver="main",
+              load_lib=True,
+          )
+          PY
+        env:
+          PDFIUM_BINARY: ${{ env.PDFIUM_BINARY }}
+          PDFIUM_HEADERS: ${{ env.PDFIUM_HEADERS }}
+
       - name: Build wheel against custom PDFium
         run: |
           python3 -m build -wxn
         env:
-          PDFIUM_PLATFORM: system-search
-          PDFIUM_BINARY: ${{ env.PDFIUM_BINARY }}
-          PDFIUM_HEADERS: ${{ env.PDFIUM_HEADERS }}
+          PDFIUM_PLATFORM: sourcebuild
 
       - name: Upload wheel as artifact
         uses: actions/upload-artifact@v4
