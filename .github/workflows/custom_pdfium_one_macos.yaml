@@ -37,7 +37,7 @@ jobs:
           python-version: ${{ inputs.py_ver }}
 
       - name: Check out pypdfium2 repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Python build dependencies
         run: |
@@ -45,14 +45,13 @@ jobs:
           python3 -m pip install -U -r req/setup.txt -r req/test.txt build
 
       - name: Download custom PDFium artifact
-        uses: dawidd6/action-download-artifact@v6
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          repo: ${{ inputs.pdfium_repo }}
-          workflow: build-pdfium.yml
-          workflow_conclusion: success
-          name: ${{ inputs.pdfium_artifact }}
-          path: custom_pdfium_artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh run download \
+            --repo "${{ inputs.pdfium_repo }}" \
+            --name "${{ inputs.pdfium_artifact }}" \
+            --dir custom_pdfium_artifact
 
       - name: Inspect custom PDFium artifact
         run: |
