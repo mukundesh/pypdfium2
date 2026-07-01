@@ -131,7 +131,10 @@ def run_setup(modnames, pl_name, datagen):
         if pl_name != ExtPlats.system:
             sys_name = plat_to_system(pl_name)
             dll_path = ModuleDir_Raw / libname_for_system(sys_name)
-            platfiles.append(dll_path.name)
+            if pl_name == ExtPlats.sourcebuild:
+                platfiles.extend(p.name for p in ModuleDir_Raw.glob(Host.libname_glob))
+            else:
+                platfiles.append(dll_path.name)
     
     license_files = list(LICENSES_SHARED)
     if pl_name == ExtPlats.sdist:
