@@ -69,6 +69,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import sys
+          import shutil
           from pathlib import Path
           sys.path.insert(0, str(Path("setupsrc").resolve()))
           from _build_helpers import pack_sourcebuild
@@ -84,6 +85,12 @@ jobs:
               build_ver="main",
               load_lib=True,
           )
+          sourcebuild_dir = Path("data/sourcebuild").resolve()
+          for lib_path in build_dir.iterdir():
+              if lib_path.name == "libpdfium.dylib":
+                  continue
+              if lib_path.suffix in {".dylib", ".so", ".dll"}:
+                  shutil.copy2(lib_path, sourcebuild_dir / lib_path.name)
           PY
         env:
           PDFIUM_BINARY: ${{ env.PDFIUM_BINARY }}
