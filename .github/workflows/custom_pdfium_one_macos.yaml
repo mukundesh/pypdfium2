@@ -55,6 +55,7 @@ jobs:
 
       - name: Inspect custom PDFium artifact
         run: |
+          echo "== custom_pdfium_artifact tree =="
           find custom_pdfium_artifact -maxdepth 3 -type f | sort
 
       - name: Resolve PDFium paths
@@ -62,6 +63,8 @@ jobs:
           PDFIUM_LIB="$(find custom_pdfium_artifact/lib -maxdepth 1 -type f \( -name 'libpdfium*.dylib' -o -name 'libpdfium*.so' -o -name 'libpdfium*.dll' \) | head -n 1)"
           test -n "$PDFIUM_LIB"
           test -d custom_pdfium_artifact/include/public
+          echo "Resolved PDFIUM_LIB=$PDFIUM_LIB"
+          echo "Resolved PDFIUM_HEADERS=$PWD/custom_pdfium_artifact/include/public"
           echo "PDFIUM_BINARY=$PDFIUM_LIB" >> "$GITHUB_ENV"
           echo "PDFIUM_HEADERS=$PWD/custom_pdfium_artifact/include/public" >> "$GITHUB_ENV"
 
@@ -96,11 +99,36 @@ jobs:
           PDFIUM_BINARY: ${{ env.PDFIUM_BINARY }}
           PDFIUM_HEADERS: ${{ env.PDFIUM_HEADERS }}
 
+      - name: Inspect sourcebuild staging
+        run: |
+          echo "== data/sourcebuild =="
+          find data/sourcebuild -maxdepth 2 -type f | sort
+          echo "== src/pypdfium2_raw before build =="
+          find src/pypdfium2_raw -maxdepth 2 -type f | sort || true
+
       - name: Build wheel against custom PDFium
         run: |
           python3 -m build -wxn
         env:
           PDFIUM_PLATFORM: sourcebuild
+
+      - name: Inspect dist contents
+        run: |
+          echo "== dist =="
+          ls -lah dist
+          WHEEL_PATH="$(ls dist/*.whl | head -n 1)"
+          echo "Wheel: $WHEEL_PATH"
+          python3 - <<'PY'
+          import sys
+          import zipfile
+          from pathlib import Path
+          wheel = sorted(Path("dist").glob("*.whl"))[0]
+          print("== wheel members matching pypdfium2_raw ==")
+          with zipfile.ZipFile(wheel) as zf:
+              for name in sorted(zf.namelist()):
+                  if "pypdfium2_raw/" in name:
+                      print(name)
+          PY
 
       - name: Upload wheel as artifact
         uses: actions/upload-artifact@v4
@@ -112,6 +140,30 @@ jobs:
       - name: Install and smoke test wheel
         run: |
           python3 -m pip install ./dist/*.whl
+          echo "== installed pypdfium2_raw files =="
+          python3 - <<'PY'
+          import pathlib
+          import pypdfium2_raw
+          raw_dir = pathlib.Path(pypdfium2_raw.__file__).resolve().parent
+          print("raw_dir =", raw_dir)
+          for path in sorted(raw_dir.iterdir()):
+              print(path.name)
+          PY
+          echo "== runtime dylib dependencies =="
+          python3 - <<'PY'
+          import pathlib
+          import pypdfium2_raw
+          raw_dir = pathlib.Path(pypdfium2_raw.__file__).resolve().parent
+          dylib = raw_dir / "libpdfium.dylib"
+          print(dylib)
+          PY
+          otool -L "$(python3 - <<'PY'
+          import pathlib
+          import pypdfium2_raw
+          raw_dir = pathlib.Path(pypdfium2_raw.__file__).resolve().parent
+          print(raw_dir / "libpdfium.dylib")
+          PY
+          )" || true
           python3 - <<'PY'
           import pypdfium2 as pdfium
           print(pdfium.PDFIUM_INFO)

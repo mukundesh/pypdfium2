@@ -132,7 +132,9 @@ def run_setup(modnames, pl_name, datagen):
             sys_name = plat_to_system(pl_name)
             dll_path = ModuleDir_Raw / libname_for_system(sys_name)
             if pl_name == ExtPlats.sourcebuild:
-                platfiles.extend(p.name for p in ModuleDir_Raw.glob(Host.libname_glob))
+                # Sourcebuild artifacts are staged during build_py, so package_data
+                # must use stable glob patterns instead of enumerating files early.
+                platfiles.extend(LIBNAME_GLOBS)
             else:
                 platfiles.append(dll_path.name)
     
