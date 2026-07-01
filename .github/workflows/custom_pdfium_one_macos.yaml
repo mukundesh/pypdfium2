@@ -86,13 +86,13 @@ jobs:
               sub_target="custom",
               full_ver=PdfiumVerUnknown,
               build_ver="main",
-              load_lib=True,
+              load_lib=False,
           )
           sourcebuild_dir = Path("data/sourcebuild").resolve()
+          print("== copying runtime libraries into sourcebuild staging ==")
           for lib_path in build_dir.iterdir():
-              if lib_path.name == "libpdfium.dylib":
-                  continue
               if lib_path.suffix in {".dylib", ".so", ".dll"}:
+                  print(f"copy {lib_path.name}")
                   shutil.copy2(lib_path, sourcebuild_dir / lib_path.name)
           PY
         env:
