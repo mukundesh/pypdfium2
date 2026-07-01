@@ -59,7 +59,7 @@ jobs:
 
       - name: Resolve PDFium paths
         run: |
-          PDFIUM_LIB="$(find custom_pdfium_artifact/lib -maxdepth 1 -type f \\( -name 'libpdfium*.dylib' -o -name 'libpdfium*.so' -o -name 'libpdfium*.dll' \\) | head -n 1)"
+          PDFIUM_LIB="$(find custom_pdfium_artifact/lib -maxdepth 1 -type f \( -name 'libpdfium*.dylib' -o -name 'libpdfium*.so' -o -name 'libpdfium*.dll' \) | head -n 1)"
           test -n "$PDFIUM_LIB"
           test -d custom_pdfium_artifact/include/public
           echo "PDFIUM_BINARY=$PDFIUM_LIB" >> "$GITHUB_ENV"
