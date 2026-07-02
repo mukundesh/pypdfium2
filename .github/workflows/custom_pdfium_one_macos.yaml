@@ -80,12 +80,15 @@ jobs:
 
           pdfium_dir = Path("custom_pdfium_artifact/include").resolve()
           build_dir = Path("custom_pdfium_artifact/lib").resolve()
+          print(f"pdfium_dir={pdfium_dir}")
+          print(f"build_dir={build_dir}")
           pack_sourcebuild(
               pdfium_dir=pdfium_dir,
               build_dir=build_dir,
               sub_target="custom",
               full_ver=PdfiumVerUnknown,
-              build_ver="main",
+              build_ver="custom",
+              post_ver=dict(n_commits=0, hash=None),
               load_lib=False,
           )
           sourcebuild_dir = Path("data/sourcebuild").resolve()
@@ -94,6 +97,13 @@ jobs:
               if lib_path.suffix in {".dylib", ".so", ".dll"}:
                   print(f"copy {lib_path.name}")
                   shutil.copy2(lib_path, sourcebuild_dir / lib_path.name)
+          version_file = sourcebuild_dir / "version.json"
+          print("== staged version metadata ==")
+          print(version_file.read_text())
+          print("== staged runtime libraries ==")
+          for lib_path in sorted(sourcebuild_dir.iterdir()):
+              if lib_path.suffix in {".dylib", ".so", ".dll"}:
+                  print(lib_path.name)
           PY
         env:
           PDFIUM_BINARY: ${{ env.PDFIUM_BINARY }}
@@ -140,27 +150,45 @@ jobs:
       - name: Install and smoke test wheel
         run: |
           python3 -m pip install ./dist/*.whl
-          echo "== installed pypdfium2_raw files =="
+          echo "== installed pypdfium2_raw files without importing package =="
           python3 - <<'PY'
-          import pathlib
-          import pypdfium2_raw
-          raw_dir = pathlib.Path(pypdfium2_raw.__file__).resolve().parent
+          import site
+          from pathlib import Path
+          candidates = []
+          for base in site.getsitepackages():
+              raw_dir = Path(base) / "pypdfium2_raw"
+              if raw_dir.is_dir():
+                  candidates.append(raw_dir)
+          assert candidates, "Could not locate installed pypdfium2_raw package directory"
+          raw_dir = candidates[0]
           print("raw_dir =", raw_dir)
           for path in sorted(raw_dir.iterdir()):
               print(path.name)
           PY
           echo "== runtime dylib dependencies =="
           python3 - <<'PY'
-          import pathlib
-          import pypdfium2_raw
-          raw_dir = pathlib.Path(pypdfium2_raw.__file__).resolve().parent
+          import site
+          from pathlib import Path
+          candidates = []
+          for base in site.getsitepackages():
+              raw_dir = Path(base) / "pypdfium2_raw"
+              if raw_dir.is_dir():
+                  candidates.append(raw_dir)
+          assert candidates, "Could not locate installed pypdfium2_raw package directory"
+          raw_dir = candidates[0]
           dylib = raw_dir / "libpdfium.dylib"
           print(dylib)
           PY
           otool -L "$(python3 - <<'PY'
-          import pathlib
-          import pypdfium2_raw
-          raw_dir = pathlib.Path(pypdfium2_raw.__file__).resolve().parent
+          import site
+          from pathlib import Path
+          candidates = []
+          for base in site.getsitepackages():
+              raw_dir = Path(base) / "pypdfium2_raw"
+              if raw_dir.is_dir():
+                  candidates.append(raw_dir)
+          assert candidates, "Could not locate installed pypdfium2_raw package directory"
+          raw_dir = candidates[0]
           print(raw_dir / "libpdfium.dylib")
           PY
           )" || true

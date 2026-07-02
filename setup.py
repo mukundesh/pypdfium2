@@ -92,9 +92,15 @@ def _get_fixed_helpers_info(pl_name):
 
 
 def assert_exists(dir, data_files):
-    missing = tuple(f for f in data_files if not (dir/f).exists())
+    missing = []
+    for f in data_files:
+        if any(ch in f for ch in "*?[]"):
+            if not tuple(dir.glob(f)):
+                missing.append(f)
+        elif not (dir/f).exists():
+            missing.append(f)
     if missing:
-        assert False, f"Missing data files: {missing}"
+        assert False, f"Missing data files: {tuple(missing)}"
 
 
 LICENSES_SHARED = (
@@ -133,8 +139,8 @@ def run_setup(modnames, pl_name, datagen):
             dll_path = ModuleDir_Raw / libname_for_system(sys_name)
             if pl_name == ExtPlats.sourcebuild:
                 # Sourcebuild artifacts are staged during build_py, so package_data
-                # must use stable glob patterns instead of enumerating files early.
-                platfiles.extend(LIBNAME_GLOBS)
+                # must use a stable host-specific glob instead of enumerating files early.
+                platfiles.append(Host.libname_glob)
             else:
                 platfiles.append(dll_path.name)
     
