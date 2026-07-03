@@ -16,6 +16,11 @@ on:
         type: string
         required: true
         default: pdfium-macos-arm64
+      pdfium_ver:
+        description: PDFium build version (e.g. 7913)
+        type: string
+        required: true
+        default: "7913"
       py_ver:
         description: Python version
         type: string
@@ -71,12 +76,19 @@ jobs:
       - name: Stage custom PDFium as sourcebuild
         run: |
           python3 - <<'PY'
+          import os
           import sys
           import shutil
           from pathlib import Path
           sys.path.insert(0, str(Path("setupsrc").resolve()))
           from _build_helpers import pack_sourcebuild
-          from base import PdfiumVerUnknown
+          from base import PdfiumVer
+
+          pdfium_ver_str = os.environ.get("PDFIUM_VER", "7913")
+          try:
+              full_ver = PdfiumVer.to_full(pdfium_ver_str)
+          except Exception:
+              full_ver = PdfiumVer.scheme(120, 0, int(pdfium_ver_str), 0)
 
           pdfium_dir = Path("custom_pdfium_artifact/include").resolve()
           build_dir = Path("custom_pdfium_artifact/lib").resolve()
@@ -86,8 +98,8 @@ jobs:
               pdfium_dir=pdfium_dir,
               build_dir=build_dir,
               sub_target="custom",
-              full_ver=PdfiumVerUnknown,
-              build_ver="custom",
+              full_ver=full_ver,
+              build_ver=pdfium_ver_str,
               post_ver=dict(n_commits=0, hash=None),
               load_lib=False,
           )
@@ -108,6 +120,7 @@ jobs:
         env:
           PDFIUM_BINARY: ${{ env.PDFIUM_BINARY }}
           PDFIUM_HEADERS: ${{ env.PDFIUM_HEADERS }}
+          PDFIUM_VER: ${{ inputs.pdfium_ver }}
 
       - name: Inspect sourcebuild staging
         run: |
@@ -197,3 +210,38 @@ jobs:
           print(pdfium.PDFIUM_INFO)
           print(hasattr(pdfium, "PdfDocument"))
           PY
+          echo "== text item API smoke test =="
+          python3 - <<'PY'
+          import pypdfium2 as pdfium
+          from pathlib import Path
+
+          pdf = pdfium.PdfDocument(Path("tests/resources/text.pdf"))
+          page = pdf[0]
+          textpage = page.get_textpage()
+
+          n_chars = textpage.count_chars()
+          n_items = textpage.count_items()
+          print(f"count_chars={n_chars}")
+          print(f"count_items={n_items}")
+          assert n_items == n_chars
+
+          item0 = textpage.get_item(0)
+          print(f"item0={item0}")
+          assert item0.unicode == ord("L")
+          assert item0.font_name == "Ubuntu"
+          assert item0.font_obj_num > 0
+
+          newline_item = textpage.get_item(27)
+          print(f"newline_item={newline_item}")
+          assert newline_item.unicode == ord("\r")
+          assert newline_item.is_generated is True
+
+          items = list(textpage.iter_items())
+          print(f"iter_items_count={len(items)}")
+          assert len(items) == n_items
+          assert items[0] == item0
+          PY
+
+      - name: Run test suite against installed wheel
+        run: |
+          python3 -m pytest tests/
