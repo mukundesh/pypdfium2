@@ -304,3 +304,5 @@ def test_load_standard_font():
     assert font.get_family_name() in ("Helvetica", "Chrom Sans OTF", "Arial")
     assert font.get_weight() == 0  # ?
     assert font.is_embedded == False
+    assert font.get_obj_num() == 0
+    assert font.get_data() is None
