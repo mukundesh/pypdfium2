@@ -78,6 +78,8 @@ def test_get_items(textpage):
     assert isinstance(item0, pdfium.PdfTextItem)
     assert item0.unicode == ord("L")
     assert item0.char_code == 1
+    assert isinstance(item0.glyph_id, int)
+    assert item0.glyph_id >= 0
     assert item0.font_name == "Ubuntu"
     assert item0.font_size == 16.0
     assert item0.font_obj_num > 0
@@ -221,6 +223,11 @@ def test_font_helpers(index, exp_char, text, font_size, base_name, family_name, 
         assert fontobj.get_family_name() == family_name
         assert fontobj.get_weight() == weight
         assert fontobj.is_embedded is True
+        assert fontobj.get_obj_num() > 0
+        
+        font_data = fontobj.get_data()
+        assert font_data is not None
+        assert len(font_data) > 0
 
 
 def _ttfmap_get(charset):

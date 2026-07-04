@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class PdfTextItem:
     char_code: int
+    glyph_id: int
     bbox: tuple[float, float, float, float]
     loose_bbox: tuple[float, float, float, float]
     origin: tuple[float, float]
@@ -216,6 +217,7 @@ class PdfTextPage (pdfium_i.AutoCloseable):
         font_name = self._get_item_font_name(index, errors=errors)
         return PdfTextItem(
             char_code = raw_item.char_code,
+            glyph_id = raw_item.glyph_id,
             bbox = (raw_item.left, raw_item.bottom, raw_item.right, raw_item.top),
             loose_bbox = (raw_item.loose_left, raw_item.loose_bottom, raw_item.loose_right, raw_item.loose_top),
             origin = (raw_item.origin_x, raw_item.origin_y),
