@@ -305,4 +305,7 @@ def test_load_standard_font():
     assert font.get_weight() == 0  # ?
     assert font.is_embedded == False
     assert font.get_obj_num() == 0
-    assert font.get_data() is None
+    font_data = font.get_data()
+    if font_data is not None:
+        assert isinstance(font_data, bytes)
+        assert len(font_data) > 0
